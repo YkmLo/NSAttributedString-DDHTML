@@ -75,7 +75,7 @@
     
     xmlNodePtr currentNode = document->children;
     while (currentNode != NULL) {
-        NSAttributedString *childString = [self attributedStringFromNode:currentNode normalFont:normalFont boldFont:boldFont italicFont:italicFont imageMap:imageMap];
+        NSAttributedString *childString = [self attributedStringFromNode:currentNode normalFont:normalFont boldFont:boldFont italicFont:italicFont imageMap:imageMap liPrefix:nil];
         [finalAttributedString appendAttributedString:childString];
         
         currentNode = currentNode->next;
@@ -86,22 +86,39 @@
     return finalAttributedString;
 }
 
-+ (NSAttributedString *)attributedStringFromNode:(xmlNodePtr)xmlNode normalFont:(UIFont *)normalFont boldFont:(UIFont *)boldFont italicFont:(UIFont *)italicFont imageMap:(NSDictionary<NSString *, UIImage *> *)imageMap
++ (NSAttributedString *)attributedStringFromNode:(xmlNodePtr)xmlNode normalFont:(UIFont *)normalFont boldFont:(UIFont *)boldFont italicFont:(UIFont *)italicFont imageMap:(NSDictionary<NSString *, UIImage *> *)imageMap liPrefix:(NSString *)liPrefix
 {
     NSMutableAttributedString *nodeAttributedString = [[NSMutableAttributedString alloc] init];
     
+    NSString *newLiPrefix = liPrefix;
+    if (xmlNode->type == XML_ELEMENT_NODE) {
+        NSString *string = [[NSString alloc] initWithUTF8String:(const char *)xmlNode->name];
+        if ([string isEqualToString:@"ul"]) {
+            newLiPrefix = @"\n    • ";
+        }
+    }
+    
     if ((xmlNode->type != XML_ENTITY_REF_NODE) && ((xmlNode->type != XML_ELEMENT_NODE) && xmlNode->content != NULL)) {
-        NSAttributedString *normalAttributedString = [[NSAttributedString alloc] initWithString:[NSString stringWithCString:(const char *)xmlNode->content encoding:NSUTF8StringEncoding] attributes:@{NSFontAttributeName : normalFont}];
+        NSString *prefix = liPrefix == nil ? @"" : liPrefix;
+        NSString *string = [NSString stringWithFormat:@"%@%@", prefix, [NSString stringWithCString:(const char *)xmlNode->content encoding:NSUTF8StringEncoding]];
+        NSAttributedString *normalAttributedString = [[NSAttributedString alloc] initWithString:string attributes:@{NSFontAttributeName : normalFont}];
         [nodeAttributedString appendAttributedString:normalAttributedString];
     }
     
     // Handle children
     xmlNodePtr currentNode = xmlNode->children;
     while (currentNode != NULL) {
-        NSAttributedString *childString = [self attributedStringFromNode:currentNode normalFont:normalFont boldFont:boldFont italicFont:italicFont imageMap:imageMap];
+        NSAttributedString *childString = [self attributedStringFromNode:currentNode normalFont:normalFont boldFont:boldFont italicFont:italicFont imageMap:imageMap liPrefix:newLiPrefix];
         [nodeAttributedString appendAttributedString:childString];
         
         currentNode = currentNode->next;
+    }
+    
+    if (xmlNode->type == XML_ELEMENT_NODE) {
+        NSString *string = [[NSString alloc] initWithUTF8String:(const char *)xmlNode->name];
+        if ([string isEqualToString:@"ul"]) {
+            [nodeAttributedString appendAttributedString:[[NSAttributedString alloc] initWithString:@"\n"]];
+        }
     }
     
     if (xmlNode->type == XML_ELEMENT_NODE) {
